@@ -1,9 +1,13 @@
 package murad.security;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Clock;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.impl.DefaultClock;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
 import murad.dto.TokenPair;
 import murad.dto.TokenType;
 import murad.exception.CustomException;
@@ -17,7 +21,7 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import javax.servlet.http.HttpServletRequest;
-import java.util.Base64;
+import java.security.Key;
 import java.util.Date;
 
 @Component
@@ -28,7 +32,11 @@ public class JwtTokenProvider {
      * microservices environment, this key would be kept on a config-server.
      */
     @Value("${security.jwt.token.secret-key}")
-    private String secretKey;
+    private String secret;
+
+    private final Clock clock = DefaultClock.INSTANCE;
+
+    private Key key;
 
     @Value("${security.jwt.token.access-expire-length}")
     private long accessValidityInMilliseconds;
@@ -40,8 +48,9 @@ public class JwtTokenProvider {
     private UserDetailServiceImpl userDetailServiceImpl;
 
     @PostConstruct
-    protected void init() {
-        secretKey = Base64.getEncoder().encodeToString(secretKey.getBytes());
+    public void init() {
+        byte[] keyBytes = Decoders.BASE64.decode(secret);
+        this.key = Keys.hmacShaKeyFor(keyBytes);
     }
 
     private String createToken(Authentication authentication, TokenType tokenType) {
@@ -60,7 +69,7 @@ public class JwtTokenProvider {
                 .setClaims(claims)
                 .setIssuedAt(now)
                 .setExpiration(validity)
-                .signWith(SignatureAlgorithm.HS256, secretKey)
+                .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
@@ -77,7 +86,7 @@ public class JwtTokenProvider {
     }
 
     public String getUsername(String token) {
-        return Jwts.parser().setSigningKey(secretKey).parseClaimsJws(token).getBody().getSubject();
+        return Jwts.parser().setSigningKey(key).parseClaimsJws(token).getBody().getSubject();
     }
 
     public String resolveToken(HttpServletRequest req) {
@@ -90,7 +99,7 @@ public class JwtTokenProvider {
 
     public boolean validateToken(String token) {
         try {
-            Jwts.parser().setSigningKey(secretKey).parseClaimsJws(token);
+            Jwts.parser().setSigningKey(key).parseClaimsJws(token);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
             throw new CustomException("Expired or invalid JWT token", HttpStatus.INTERNAL_SERVER_ERROR);

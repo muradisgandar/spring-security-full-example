@@ -11,12 +11,14 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import murad.exception.CustomException;
+import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 // We should use OncePerRequestFilter since we are doing a database call, there is no point in doing this more than once
+@Component
 public class JwtTokenFilter extends OncePerRequestFilter {
 
-  private JwtTokenProvider jwtTokenProvider;
+  private final JwtTokenProvider jwtTokenProvider;
 
   public JwtTokenFilter(JwtTokenProvider jwtTokenProvider) {
     this.jwtTokenProvider = jwtTokenProvider;
@@ -24,6 +26,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
 
   @Override
   protected void doFilterInternal(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse, FilterChain filterChain) throws ServletException, IOException {
+
     String token = jwtTokenProvider.resolveToken(httpServletRequest);
     try {
       if (token != null && jwtTokenProvider.validateToken(token)) {
