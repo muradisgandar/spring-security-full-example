@@ -38,7 +38,10 @@ public class UserService {
         try {
             Authentication authenticate = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
 
-            return jwtTokenProvider.createTokenPair(authenticate);
+            SecurityContextHolder.getContext().setAuthentication(authenticate);
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+            return jwtTokenProvider.createTokenPair(authentication);
 
         } catch (AuthenticationException e) {
             throw new CustomException("Invalid username/password supplied", HttpStatus.UNPROCESSABLE_ENTITY);
